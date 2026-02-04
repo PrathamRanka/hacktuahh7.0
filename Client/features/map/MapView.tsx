@@ -1,10 +1,10 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import mapboxgl from 'mapbox-gl';
-import 'mapbox-gl/dist/mapbox-gl.css';
+import maplibregl from 'maplibre-gl';
+import 'maplibre-gl/dist/maplibre-gl.css';
 import type { Recommendation } from '@/lib/types';
-import { MAPBOX_CONFIG, getMarkerColor } from './map.config';
+import { MAPBOX_CONFIG } from './map.config';
 import BuildingMarkers from './BuildingMarkers';
 import MapControls from './MapControls';
 
@@ -20,68 +20,60 @@ export default function MapView({
   selectedBuilding,
 }: MapViewProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
-  const map = useRef<mapboxgl.Map | null>(null);
-  const [is3D, setIs3D] = useState(true);
+  const map = useRef<maplibregl.Map | null>(null);
+  const [is3D, setIs3D] = useState(false);
 
-  // Initialize Mapbox
+  // Initialize MapLibre with OSM tiles
   useEffect(() => {
     if (!mapContainer.current || map.current) return;
 
-    mapboxgl.accessToken = MAPBOX_CONFIG.accessToken;
-
-    map.current = new mapboxgl.Map({
+    map.current = new maplibregl.Map({
       container: mapContainer.current,
-      style: MAPBOX_CONFIG.style,
-      center: MAPBOX_CONFIG.center,
-      zoom: MAPBOX_CONFIG.zoom,
-      pitch: 60,
-      bearing: -17.6,
-      antialias: true,
-    });
-
-    map.current.on('load', () => {
-      if (!map.current) return;
-
-      // Add 3D buildings layer
-      const layers = map.current.getStyle().layers;
-      const labelLayerId = layers?.find(
-        (layer) => layer.type === 'symbol' && layer.layout?.['text-field']
-      )?.id;
-
-      map.current.addLayer(
-        {
-          id: '3d-buildings',
-          source: 'composite',
-          'source-layer': 'building',
-          filter: ['==', 'extrude', 'true'],
-          type: 'fill-extrusion',
-          minzoom: 15,
-          paint: {
-            'fill-extrusion-color': '#aaa',
-            'fill-extrusion-height': [
-              'interpolate',
-              ['linear'],
-              ['zoom'],
-              15,
-              0,
-              15.05,
-              ['get', 'height'],
-            ],
-            'fill-extrusion-base': [
-              'interpolate',
-              ['linear'],
-              ['zoom'],
-              15,
-              0,
-              15.05,
-              ['get', 'min_height'],
-            ],
-            'fill-extrusion-opacity': 0.6,
+      style: {
+        version: 8,
+        sources: {
+          'osm-tiles': {
+            type: 'raster',
+            tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+            tileSize: 256,
+            attribution: '© OpenStreetMap contributors',
+            maxzoom: 19,
           },
         },
-        labelLayerId
-      );
+        layers: [
+          {
+            id: 'osm-layer',
+            type: 'raster',
+            source: 'osm-tiles',
+            minzoom: 0,
+            maxzoom: 22,
+          },
+        ],
+      },
+      center: MAPBOX_CONFIG.center,
+      zoom: 15,
+      pitch: 0,
+      bearing: 0,
     });
+
+    // Add navigation controls
+    map.current.addControl(
+      new maplibregl.NavigationControl({
+        visualizePitch: false,
+        showZoom: true,
+        showCompass: true,
+      }),
+      'top-right'
+    );
+
+    // Add scale control
+    map.current.addControl(
+      new maplibregl.ScaleControl({
+        maxWidth: 100,
+        unit: 'metric',
+      }),
+      'bottom-left'
+    );
 
     return () => {
       map.current?.remove();
@@ -94,39 +86,38 @@ export default function MapView({
     if (selectedBuilding && map.current) {
       map.current.flyTo({
         center: [selectedBuilding.lng, selectedBuilding.lat],
-        zoom: 17,
-        pitch: 60,
+        zoom: 18,
         duration: 1500,
+        essential: true,
       });
     }
   }, [selectedBuilding]);
 
   const handleToggle3D = () => {
-    if (!map.current) return;
-    const newPitch = is3D ? 0 : 60;
-    map.current.easeTo({ pitch: newPitch, duration: 1000 });
-    setIs3D(!is3D);
+    // 3D not available with free OSM tiles
+    console.log('3D view requires premium tile source with building data');
   };
 
   const handleReset = () => {
     if (!map.current) return;
     map.current.flyTo({
       center: MAPBOX_CONFIG.center,
-      zoom: MAPBOX_CONFIG.zoom,
-      pitch: 60,
-      bearing: -17.6,
+      zoom: 15,
+      pitch: 0,
+      bearing: 0,
       duration: 1500,
+      essential: true,
     });
   };
 
   return (
     <div className="relative w-full h-full">
       <div ref={mapContainer} className="absolute inset-0" />
-      
+
       {map.current && (
         <>
           <BuildingMarkers
-            map={map.current}
+            map={map.current as any}
             recommendations={recommendations}
             onSelect={onBuildingSelect}
             selectedId={selectedBuilding?.id}
@@ -138,6 +129,11 @@ export default function MapView({
           />
         </>
       )}
+
+      {/* Map info */}
+      <div className="absolute bottom-4 right-4 bg-white/90 text-slate-700 px-3 py-1.5 rounded-lg text-xs font-medium shadow-lg">
+        🗺️ OpenStreetMap
+      </div>
     </div>
   );
 }

@@ -1,12 +1,12 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import mapboxgl from 'mapbox-gl';
-import { getMarkerColor } from './map.config';
+import maplibregl from 'maplibre-gl';
 import type { Recommendation } from '@/lib/types';
+import { getMarkerColor } from './map.config';
 
 interface BuildingMarkersProps {
-  map: mapboxgl.Map;
+  map: any; // Using any to avoid type conflicts
   recommendations: Recommendation[];
   onSelect: (building: Recommendation) => void;
   selectedId?: string;
@@ -18,62 +18,73 @@ export default function BuildingMarkers({
   onSelect,
   selectedId,
 }: BuildingMarkersProps) {
-  const markersRef = useRef<mapboxgl.Marker[]>([]);
+  const markersRef = useRef<any[]>([]);
 
   useEffect(() => {
-    // Remove existing markers
-    markersRef.current.forEach((marker) => marker.remove());
+    // Clear existing markers
+    markersRef.current.forEach(marker => marker.remove());
     markersRef.current = [];
 
     // Add new markers
-    recommendations.forEach((rec) => {
-      const isSelected = rec.id === selectedId;
-      const color = getMarkerColor(rec.greenScore);
+    recommendations.forEach(building => {
+      const isSelected = building.id === selectedId;
+      const color = getMarkerColor(building.greenScore);
 
-      // Create marker element
+      // Create custom marker element
       const el = document.createElement('div');
-      el.className = `cursor-pointer transition-transform ${
-        isSelected ? 'scale-125 z-50' : 'hover:scale-110'
-      }`;
-      el.style.width = isSelected ? '48px' : '40px';
-      el.style.height = isSelected ? '48px' : '40px';
-
-      el.innerHTML = `
-        <div class="relative w-full h-full">
-          <svg viewBox="0 0 40 40" class="w-full h-full drop-shadow-lg">
-            <circle cx="20" cy="20" r="18" fill="${color}" opacity="0.9"/>
-            <circle cx="20" cy="20" r="14" fill="white" opacity="0.3"/>
-            <text x="20" y="25" text-anchor="middle" fill="white" font-size="14" font-weight="bold">
-              ${rec.rank}
-            </text>
-          </svg>
-          ${
-            isSelected
-              ? `<div class="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full animate-pulse"></div>`
-              : ''
-          }
-        </div>
+      el.className = 'building-marker';
+      el.style.cssText = `
+        width: ${isSelected ? '32px' : '24px'};
+        height: ${isSelected ? '32px' : '24px'};
+        background: ${color};
+        border: 3px solid white;
+        border-radius: 50%;
+        cursor: pointer;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        transition: all 0.3s ease;
+        position: relative;
       `;
 
-      el.addEventListener('click', () => {
-        onSelect(rec);
-        map.flyTo({
-          center: [rec.lng, rec.lat],
-          zoom: 16,
-          pitch: 60,
-          duration: 1500,
-        });
+      // Add pulsing ring for selected marker
+      if (isSelected) {
+        const ring = document.createElement('div');
+        ring.style.cssText = `
+          position: absolute;
+          top: -4px;
+          left: -4px;
+          right: -4px;
+          bottom: -4px;
+          border: 2px solid ${color};
+          border-radius: 50%;
+          animation: pulse 2s infinite;
+        `;
+        el.appendChild(ring);
+      }
+
+      // Hover effects
+      el.addEventListener('mouseenter', () => {
+        el.style.transform = 'scale(1.2)';
+        el.style.zIndex = '1000';
       });
 
-      const marker = new mapboxgl.Marker({ element: el })
-        .setLngLat([rec.lng, rec.lat])
+      el.addEventListener('mouseleave', () => {
+        el.style.transform = 'scale(1)';
+        el.style.zIndex = '1';
+      });
+
+      // Create marker
+      const marker = new maplibregl.Marker({ element: el })
+        .setLngLat([building.lng, building.lat])
         .addTo(map);
+
+      // Add click handler
+      el.addEventListener('click', () => onSelect(building));
 
       markersRef.current.push(marker);
     });
 
     return () => {
-      markersRef.current.forEach((marker) => marker.remove());
+      markersRef.current.forEach(marker => marker.remove());
       markersRef.current = [];
     };
   }, [map, recommendations, selectedId, onSelect]);

@@ -1,38 +1,35 @@
-// Mapbox configuration for CarbonCompass
+// Map configuration for MapLibre GL
 
 export const MAPBOX_CONFIG = {
-  accessToken: process.env.NEXT_PUBLIC_MAPBOX_TOKEN || 'pk.eyJ1IjoiY2FyYm9uY29tcGFzcyIsImEiOiJjbHh5ejEyM3QwMDAwMmtzNzg5YnJxeXN6In0.example',
-  style: 'mapbox://styles/mapbox/light-v11',
-  center: {
-    lng: 76.3869,
-    lat: 30.3398,
-  },
-  zoom: 13,
-  pitch: 60,
-  bearing: 0,
-  antialias: true,
+  center: [76.3869, 30.3398] as [number, number], // Patiala, Punjab
+  zoom: 15,
+  style: 'https://demotiles.maplibre.org/style.json', // Free MapLibre style
 };
 
-export const PATIALA_BOUNDS = {
-  minLng: 76.3,
-  maxLng: 76.5,
-  minLat: 30.2,
-  maxLat: 30.4,
-};
+/**
+ * Get marker color based on green score
+ */
+export function getMarkerColor(score: number): string {
+  if (score >= 0.8) return '#10b981'; // Emerald - Excellent
+  if (score >= 0.6) return '#3b82f6'; // Blue - Good
+  if (score >= 0.4) return '#f59e0b'; // Amber - Fair
+  return '#ef4444'; // Red - Low
+}
 
-// Marker colors based on green score
-export const getMarkerColor = (greenScore: number): string => {
-  if (greenScore >= 0.8) return '#10b981'; // Excellent - emerald-500
-  if (greenScore >= 0.6) return '#22c55e'; // Good - green-500
-  if (greenScore >= 0.4) return '#eab308'; // Fair - yellow-500
-  if (greenScore >= 0.2) return '#f97316'; // Poor - orange-500
-  return '#ef4444'; // Very Poor - red-500
-};
-
-export const SCORE_TIERS = {
-  EXCELLENT: { min: 0.8, label: 'Excellent', color: '#10b981' },
-  GOOD: { min: 0.6, label: 'Good', color: '#22c55e' },
-  FAIR: { min: 0.4, label: 'Fair', color: '#eab308' },
-  POOR: { min: 0.2, label: 'Poor', color: '#f97316' },
-  VERY_POOR: { min: 0, label: 'Very Poor', color: '#ef4444' },
-};
+/**
+ * Get tier badge color
+ */
+export function getTierColor(tier: string): string {
+  switch (tier) {
+    case 'Excellent':
+      return 'bg-emerald-100 text-emerald-800 border-emerald-300';
+    case 'Good':
+      return 'bg-blue-100 text-blue-800 border-blue-300';
+    case 'Fair':
+      return 'bg-amber-100 text-amber-800 border-amber-300';
+    case 'Low':
+      return 'bg-red-100 text-red-800 border-red-300';
+    default:
+      return 'bg-slate-100 text-slate-800 border-slate-300';
+  }
+}

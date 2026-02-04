@@ -16,13 +16,13 @@ export const metadata: Metadata = {
 export default function RootLayout({
   children,
 }: Readonly<{
-  children: React.Node;
+  children: React.ReactNode;
 }>) {
   return (
     <html lang="en" className={inter.variable}>
       <head>
         <link
-          href="https://api.mapbox.com/mapbox-gl-js/v3.1.2/mapbox-gl.css"
+          href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css"
           rel="stylesheet"
         />
       </head>
@@ -57,7 +57,7 @@ export default function RootLayout({
           </nav>
 
           {/* Main Content */}
-          <main className="flex-1">
+          <main>
             {children}
           </main>
 
