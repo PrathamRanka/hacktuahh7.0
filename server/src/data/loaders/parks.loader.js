@@ -18,31 +18,35 @@ async function loadParks() {
     const data = await fs.readFile(filePath, 'utf8');
     const geojson = JSON.parse(data);
 
-    // Extract park points (nodes and polygon centroids)
+    // Extract park features
     const parks = [];
 
-    geojson.elements.forEach(el => {
-      if (el.type === 'node' && el.lat && el.lon) {
+    geojson.features.forEach((feature, index) => {
+      if (feature.geometry.type === 'Point') {
         parks.push({
-          id: el.id.toString(),
-          lat: el.lat,
-          lng: el.lon,
-          name: el.tags?.name || 'Park',
-          tags: el.tags || {},
+          id: feature.id?.toString() || `park-${index}`,
+          lat: feature.geometry.coordinates[1],
+          lng: feature.geometry.coordinates[0],
+          name: feature.properties?.name || 'Park',
+          tags: feature.properties || {},
         });
-      } else if (el.geometry && el.geometry.length > 0) {
+      } else if (feature.geometry.type === 'Polygon' || feature.geometry.type === 'MultiPolygon') {
         // Calculate centroid for polygons
-        const lats = el.geometry.map(coord => coord.lat);
-        const lngs = el.geometry.map(coord => coord.lon);
-        const centroidLat = lats.reduce((a, b) => a + b, 0) / lats.length;
+        const coords = feature.geometry.type === 'Polygon' 
+          ? feature.geometry.coordinates[0]
+          : feature.geometry.coordinates[0][0];
+        
+        const lngs = coords.map(c => c[0]);
+        const lats = coords.map(c => c[1]);
         const centroidLng = lngs.reduce((a, b) => a + b, 0) / lngs.length;
+        const centroidLat = lats.reduce((a, b) => a + b, 0) / lats.length;
 
         parks.push({
-          id: el.id.toString(),
+          id: feature.id?.toString() || `park-${index}`,
           lat: centroidLat,
           lng: centroidLng,
-          name: el.tags?.name || 'Green Space',
-          tags: el.tags || {},
+          name: feature.properties?.name || 'Green Space',
+          tags: feature.properties || {},
         });
       }
     });

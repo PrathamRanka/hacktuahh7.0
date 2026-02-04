@@ -18,15 +18,15 @@ async function loadTransit() {
     const data = await fs.readFile(filePath, 'utf8');
     const geojson = JSON.parse(data);
 
-    // Extract transit stop nodes
-    const stops = geojson.elements
-      .filter(el => el.type === 'node' && el.lat && el.lon)
-      .map(el => ({
-        id: el.id.toString(),
-        lat: el.lat,
-        lng: el.lon,
-        name: el.tags?.name || 'Bus Stop',
-        tags: el.tags || {},
+    // Extract transit stop features
+    const stops = geojson.features
+      .filter(feature => feature.geometry && feature.geometry.type === 'Point')
+      .map((feature, index) => ({
+        id: feature.id?.toString() || `stop-${index}`,
+        lat: feature.geometry.coordinates[1],
+        lng: feature.geometry.coordinates[0],
+        name: feature.properties?.name || 'Bus Stop',
+        tags: feature.properties || {},
       }));
 
     transitCache = stops;

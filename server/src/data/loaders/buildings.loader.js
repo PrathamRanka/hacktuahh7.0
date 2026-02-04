@@ -18,15 +18,15 @@ async function loadBuildings() {
     const data = await fs.readFile(filePath, 'utf8');
     const geojson = JSON.parse(data);
 
-    // Extract building nodes with coordinates
-    const buildings = geojson.elements
-      .filter(el => el.type === 'node' && el.lat && el.lon)
-      .map(el => ({
-        id: el.id.toString(),
-        lat: el.lat,
-        lng: el.lon,
-        name: el.tags?.name || null,
-        tags: el.tags || {},
+    // Extract building features with coordinates
+    const buildings = geojson.features
+      .filter(feature => feature.geometry && feature.geometry.type === 'Point')
+      .map((feature, index) => ({
+        id: feature.id?.toString() || `building-${index}`,
+        lat: feature.geometry.coordinates[1],
+        lng: feature.geometry.coordinates[0],
+        name: feature.properties?.name || null,
+        tags: feature.properties || {},
       }));
 
     buildingsCache = buildings;
