@@ -1,5 +1,7 @@
 // API client for CarbonCompass backend
 
+import type { ImpactResponse } from '@/lib/types';
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
 class ApiClient {
@@ -59,7 +61,7 @@ class ApiClient {
   }
 
   async calculateImpact(lat: number, lng: number, businessType?: string) {
-    return this.request('/impact', {
+    return this.request<ImpactResponse>('/impact', {
       method: 'POST',
       body: JSON.stringify({ lat, lng, businessType }),
     });

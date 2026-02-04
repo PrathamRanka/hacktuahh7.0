@@ -80,3 +80,12 @@ export interface ApiResponse<T> {
     code: string;
   };
 }
+
+export interface ImpactResponse {
+  success: boolean;
+  impact?: ImpactData;
+  error?: {
+    message: string;
+    code: string;
+  };
+}
