@@ -1,25 +1,13 @@
-/**
- * chat.routes.js
- * Routes for chat/AI explanation endpoints
- */
+// Chat routes
 
 const express = require('express');
 const router = express.Router();
-const {
-  chatController,
-  getSuggestionsController
-} = require('../controllers/chat.controller');
+const { sendMessage, getSuggestions } = require('../controllers/chat.controller');
 
-/**
- * POST /chat
- * Process a chat message and get AI response
- */
-router.post('/', chatController);
+// POST /api/chat - Send chat message
+router.post('/', sendMessage);
 
-/**
- * GET /chat/suggestions
- * Get suggested questions based on context
- */
-router.get('/suggestions', getSuggestionsController);
+// GET /api/chat/suggestions - Get suggested questions
+router.get('/suggestions', getSuggestions);
 
 module.exports = router;

@@ -1,168 +1,121 @@
-/**
- * recommend.controller.js
- * Controller for location recommendation endpoints
- * Handles business type-based recommendations
- */
+// Recommendation controller
 
-const { getRecommendations, calculateLocationScore } = require('../services/scoring.service');
-const { isValidBusinessType, getAvailableBusinessTypes } = require('../logic/businessFit.logic');
+const { getRecommendations, getScore } = require('../services/scoring.service');
 
 /**
- * POST /recommend
+ * POST /api/recommend
  * Get location recommendations for a business type
  */
-async function getRecommendationsController(req, res, next) {
+async function recommend(req, res) {
   try {
-    const { businessType, limit, minGreenScore, minBusinessFit, sortBy } = req.body;
+    const { businessType, limit } = req.body;
 
-    // Validate required fields
     if (!businessType) {
       return res.status(400).json({
         success: false,
-        error: 'Business type is required',
-        message: 'Please provide a businessType in the request body'
+        error: {
+          message: 'businessType is required',
+          code: 'MISSING_BUSINESS_TYPE',
+        },
       });
     }
 
-    // Validate business type
-    if (!isValidBusinessType(businessType)) {
-      const availableTypes = getAvailableBusinessTypes();
-      return res.status(400).json({
-        success: false,
-        error: 'Invalid business type',
-        message: `Business type must be one of: ${availableTypes.map(t => t.id).join(', ')}`,
-        availableTypes
-      });
-    }
+    const recommendations = await getRecommendations(businessType, limit || 20);
 
-    // Build options
-    const options = {
-      limit: limit || 10,
-      minGreenScore: minGreenScore || 0,
-      minBusinessFit: minBusinessFit || 0,
-      sortBy: sortBy || 'combined'
-    };
-
-    // Validate options
-    if (options.limit < 1 || options.limit > 50) {
-      return res.status(400).json({
-        success: false,
-        error: 'Invalid limit',
-        message: 'Limit must be between 1 and 50'
-      });
-    }
-
-    // Get recommendations
-    const recommendations = getRecommendations(businessType, options);
-
-    // Return response
-    return res.status(200).json({
+    res.json({
       success: true,
-      businessType,
+      recommendations,
       count: recommendations.length,
-      recommendations: recommendations.map(rec => ({
-        id: rec.id,
-        lat: rec.lat,
-        lng: rec.lng,
-        greenScore: parseFloat(rec.greenScore.toFixed(2)),
-        businessFitScore: parseFloat(rec.businessFitScore.toFixed(2)),
-        rank: rec.rank,
-        tier: rec.tier,
-        explanation: rec.explanation
-      }))
     });
   } catch (error) {
-    next(error);
+    console.error('Recommendation error:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        message: 'Failed to generate recommendations',
+        code: 'RECOMMENDATION_ERROR',
+      },
+    });
   }
 }
 
 /**
- * POST /recommend/score
- * Get score for a specific location
+ * POST /api/recommend/score
+ * Get green score for a specific location
  */
-async function getLocationScoreController(req, res, next) {
+async function score(req, res) {
   try {
     const { lat, lng, businessType } = req.body;
 
-    // Validate required fields
-    if (lat === undefined || lng === undefined) {
+    if (!lat || !lng) {
       return res.status(400).json({
         success: false,
-        error: 'Coordinates required',
-        message: 'Please provide lat and lng in the request body'
+        error: {
+          message: 'lat and lng are required',
+          code: 'MISSING_COORDINATES',
+        },
       });
     }
 
-    // Validate coordinates
-    if (typeof lat !== 'number' || typeof lng !== 'number') {
-      return res.status(400).json({
-        success: false,
-        error: 'Invalid coordinates',
-        message: 'Latitude and longitude must be numbers'
-      });
-    }
+    const scoreData = await getScore(lat, lng, businessType);
 
-    if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
-      return res.status(400).json({
-        success: false,
-        error: 'Invalid coordinate range',
-        message: 'Latitude must be between -90 and 90, longitude between -180 and 180'
-      });
-    }
-
-    // Validate business type if provided
-    if (businessType && !isValidBusinessType(businessType)) {
-      const availableTypes = getAvailableBusinessTypes();
-      return res.status(400).json({
-        success: false,
-        error: 'Invalid business type',
-        message: `Business type must be one of: ${availableTypes.map(t => t.id).join(', ')}`,
-        availableTypes
-      });
-    }
-
-    // Calculate score
-    const score = calculateLocationScore(lat, lng, businessType);
-
-    // Return response
-    return res.status(200).json({
+    res.json({
       success: true,
-      location: {
-        lat,
-        lng
-      },
-      greenScore: parseFloat(score.greenScore.toFixed(2)),
-      tier: score.tier,
-      businessFitScore: score.businessFitScore ? parseFloat(score.businessFitScore.toFixed(2)) : null,
-      explanation: score.explanation,
-      detailedExplanation: score.detailedExplanation,
-      metrics: score.metrics
+      score: scoreData,
     });
   } catch (error) {
-    next(error);
+    console.error('Score error:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        message: 'Failed to calculate score',
+        code: 'SCORE_ERROR',
+      },
+    });
   }
 }
 
 /**
- * GET /recommend/business-types
- * Get all available business types
+ * GET /api/recommend/business-types
+ * Get available business types
  */
-async function getBusinessTypesController(req, res, next) {
-  try {
-    const types = getAvailableBusinessTypes();
+function getBusinessTypes(req, res) {
+  const businessTypes = [
+    {
+      id: 'eco_cafe',
+      name: 'Eco-Friendly Café',
+      description: 'Sustainable café with focus on park views and customer accessibility',
+    },
+    {
+      id: 'green_office',
+      name: 'Green Office Space',
+      description: 'Environmentally conscious office with excellent transit access',
+    },
+    {
+      id: 'sustainable_retail',
+      name: 'Sustainable Retail',
+      description: 'Eco-friendly retail store in high-traffic sustainable areas',
+    },
+    {
+      id: 'wellness_center',
+      name: 'Wellness Center',
+      description: 'Health and wellness facility near green spaces',
+    },
+    {
+      id: 'coworking_space',
+      name: 'Co-working Space',
+      description: 'Collaborative workspace with diverse transit options',
+    },
+  ];
 
-    return res.status(200).json({
-      success: true,
-      count: types.length,
-      businessTypes: types
-    });
-  } catch (error) {
-    next(error);
-  }
+  res.json({
+    success: true,
+    businessTypes,
+  });
 }
 
 module.exports = {
-  getRecommendationsController,
-  getLocationScoreController,
-  getBusinessTypesController
+  recommend,
+  score,
+  getBusinessTypes,
 };

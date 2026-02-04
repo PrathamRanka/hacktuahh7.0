@@ -1,91 +1,121 @@
 // API client for CarbonCompass backend
 
-import type { ImpactResponse } from '@/lib/types';
-
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
 class ApiClient {
-  private baseUrl: string;
-
-  constructor(baseUrl: string = API_BASE_URL) {
-    this.baseUrl = baseUrl;
-  }
-
-  private async request<T>(
-    endpoint: string,
-    options: RequestInit = {}
-  ): Promise<T> {
-    const url = `${this.baseUrl}${endpoint}`;
-    
-    const config: RequestInit = {
-      ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        ...options.headers,
-      },
-    };
-
-    try {
-      const response = await fetch(url, config);
-      
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error?.message || 'API request failed');
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error('API Error:', error);
-      throw error;
-    }
-  }
-
-  async getRecommendations(businessType: string, limit: number = 10) {
-    return this.request('/recommend', {
+  /**
+   * Get recommendations for a business type
+   */
+  async getRecommendations(businessType, limit = 20) {
+    const response = await fetch(`${API_BASE_URL}/recommend`, {
       method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ businessType, limit }),
     });
+
+    if (!response.ok) {
+      throw new Error(`Failed to get recommendations: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    return data.recommendations;
   }
 
-  async getLocationScore(lat: number, lng: number, businessType?: string) {
-    return this.request('/recommend/score', {
+  /**
+   * Get score for a specific location
+   */
+  async getScore(lat, lng, businessType) {
+    const response = await fetch(`${API_BASE_URL}/recommend/score`, {
       method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ lat, lng, businessType }),
     });
+
+    if (!response.ok) {
+      throw new Error(`Failed to get score: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    return data.score;
   }
 
+  /**
+   * Get available business types
+   */
   async getBusinessTypes() {
-    return this.request('/recommend/business-types', {
-      method: 'GET',
-    });
+    const response = await fetch(`${API_BASE_URL}/recommend/business-types`);
+
+    if (!response.ok) {
+      throw new Error(`Failed to get business types: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    return data.businessTypes;
   }
 
-  async calculateImpact(lat: number, lng: number, businessType?: string) {
-    return this.request<ImpactResponse>('/impact', {
+  /**
+   * Calculate environmental impact
+   */
+  async getImpact(lat, lng, businessType) {
+    const response = await fetch(`${API_BASE_URL}/impact`, {
       method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ lat, lng, businessType }),
     });
+
+    if (!response.ok) {
+      throw new Error(`Failed to get impact: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    return data.impact;
   }
 
-  async sendChatMessage(message: string, context?: any) {
-    return this.request('/chat', {
+  /**
+   * Send chat message
+   */
+  async sendChatMessage(message, context = {}) {
+    const response = await fetch(`${API_BASE_URL}/chat`, {
       method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ message, context }),
     });
+
+    if (!response.ok) {
+      throw new Error(`Failed to send message: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    return data.response;
   }
 
-  async getChatSuggestions(hasLocation: boolean = false, hasBusinessType: boolean = false) {
-    return this.request(`/chat/suggestions?hasLocation=${hasLocation}&hasBusinessType=${hasBusinessType}`, {
-      method: 'GET',
-    });
+  /**
+   * Get chat suggestions
+   */
+  async getChatSuggestions() {
+    const response = await fetch(`${API_BASE_URL}/chat/suggestions`);
+
+    if (!response.ok) {
+      throw new Error(`Failed to get suggestions: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    return data.suggestions;
   }
 
+  /**
+   * Health check
+   */
   async healthCheck() {
-    return this.request('/health', {
-      method: 'GET',
-    });
+    const response = await fetch(`${API_BASE_URL}/health`);
+    
+    if (!response.ok) {
+      throw new Error('API is not healthy');
+    }
+
+    const data = await response.json();
+    return data;
   }
 }
 
 export const apiClient = new ApiClient();
-export default apiClient;

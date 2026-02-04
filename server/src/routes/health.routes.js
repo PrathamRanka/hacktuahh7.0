@@ -1,50 +1,47 @@
-/**
- * health.routes.js
- * Health check and system status routes
- */
+// Health check routes
 
 const express = require('express');
 const router = express.Router();
-const { getDataStatistics } = require('../services/geo.service');
 
-/**
- * GET /health
- * Basic health check endpoint
- */
+// GET /api/health - Basic health check
 router.get('/', (req, res) => {
-  res.status(200).json({
+  res.json({
     success: true,
     status: 'healthy',
     timestamp: new Date().toISOString(),
-    service: 'CarbonCompass API',
-    version: '1.0.0'
   });
 });
 
-/**
- * GET /health/detailed
- * Detailed health check with data statistics
- */
-router.get('/detailed', (req, res, next) => {
+// GET /api/health/detailed - Detailed health check
+router.get('/detailed', async (req, res) => {
   try {
-    const stats = getDataStatistics();
-    
-    res.status(200).json({
+    const { loadBuildings } = require('../data/loaders/buildings.loader');
+    const { loadParks } = require('../data/loaders/parks.loader');
+    const { loadTransit } = require('../data/loaders/transit.loader');
+
+    const [buildings, parks, transit] = await Promise.all([
+      loadBuildings(),
+      loadParks(),
+      loadTransit(),
+    ]);
+
+    res.json({
       success: true,
       status: 'healthy',
-      timestamp: new Date().toISOString(),
-      service: 'CarbonCompass API',
-      version: '1.0.0',
       data: {
-        buildingsLoaded: stats.buildingsCount,
-        parksLoaded: stats.parksCount,
-        transitStopsLoaded: stats.transitStopsCount,
-        dataReady: stats.dataLoaded
+        buildings: buildings.length,
+        parks: parks.length,
+        transit: transit.length,
       },
-      uptime: process.uptime()
+      timestamp: new Date().toISOString(),
     });
   } catch (error) {
-    next(error);
+    res.status(500).json({
+      success: false,
+      status: 'unhealthy',
+      error: error.message,
+      timestamp: new Date().toISOString(),
+    });
   }
 });
 

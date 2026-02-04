@@ -1,83 +1,79 @@
-/**
- * chat.controller.js
- * Controller for chat/AI explanation endpoints
- * Handles conversational queries about sustainability
- */
-
-const { processMessage, generateSuggestedQuestions } = require('../services/chat.service');
+// Chat controller
 
 /**
- * POST /chat
- * Process a chat message and get AI response
+ * POST /api/chat
+ * Handle chat messages
  */
-async function chatController(req, res, next) {
+async function sendMessage(req, res) {
   try {
     const { message, context } = req.body;
 
-    // Validate message
-    if (!message || typeof message !== 'string' || message.trim().length === 0) {
+    if (!message) {
       return res.status(400).json({
         success: false,
-        error: 'Invalid message',
-        message: 'Please provide a non-empty message string'
+        error: {
+          message: 'message is required',
+          code: 'MISSING_MESSAGE',
+        },
       });
     }
 
-    // Validate message length
-    if (message.length > 500) {
-      return res.status(400).json({
-        success: false,
-        error: 'Message too long',
-        message: 'Message must be 500 characters or less'
-      });
+    // Simple rule-based responses
+    let response = '';
+
+    const lowerMessage = message.toLowerCase();
+
+    if (lowerMessage.includes('green score') || lowerMessage.includes('score')) {
+      response = 'Green scores are calculated based on proximity to parks, transit access, and environmental factors. Higher scores indicate more sustainable locations.';
+    } else if (lowerMessage.includes('park') || lowerMessage.includes('green space')) {
+      response = 'Parks and green spaces are crucial for sustainability. They improve air quality, provide recreation areas, and enhance overall wellbeing.';
+    } else if (lowerMessage.includes('transit') || lowerMessage.includes('bus')) {
+      response = 'Good public transit access reduces carbon emissions by encouraging people to use sustainable transportation instead of personal vehicles.';
+    } else if (lowerMessage.includes('recommend') || lowerMessage.includes('best')) {
+      response = 'Our recommendations are ranked by green score, which considers park proximity, transit access, and environmental impact. Higher-ranked locations offer better sustainability benefits.';
+    } else if (lowerMessage.includes('how') || lowerMessage.includes('why')) {
+      response = 'We analyze multiple environmental factors including distance to parks, public transit availability, and overall green infrastructure to determine the best sustainable locations for your business.';
+    } else {
+      response = 'I can help you understand green scores, sustainability factors, and location recommendations. Ask me about parks, transit, or why certain locations are recommended!';
     }
 
-    // Process message
-    const response = processMessage(message, context || {});
-
-    // Generate suggested follow-up questions
-    const suggestions = generateSuggestedQuestions(context || {});
-
-    // Return response
-    return res.status(200).json({
+    res.json({
       success: true,
-      response: {
-        message: response.message,
-        type: response.type,
-        timestamp: response.timestamp
-      },
-      suggestions: suggestions.slice(0, 3) // Return top 3 suggestions
+      response,
+      timestamp: new Date().toISOString(),
     });
   } catch (error) {
-    next(error);
+    console.error('Chat error:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        message: 'Failed to process message',
+        code: 'CHAT_ERROR',
+      },
+    });
   }
 }
 
 /**
- * GET /chat/suggestions
- * Get suggested questions based on context
+ * GET /api/chat/suggestions
+ * Get suggested questions
  */
-async function getSuggestionsController(req, res, next) {
-  try {
-    const { hasLocation, hasBusinessType } = req.query;
+function getSuggestions(req, res) {
+  const suggestions = [
+    'What makes a location sustainable?',
+    'How is the green score calculated?',
+    'Why are parks important?',
+    'What role does transit play?',
+    'How can I improve my location choice?',
+  ];
 
-    const context = {
-      hasLocation: hasLocation === 'true',
-      hasBusinessType: hasBusinessType === 'true'
-    };
-
-    const suggestions = generateSuggestedQuestions(context);
-
-    return res.status(200).json({
-      success: true,
-      suggestions
-    });
-  } catch (error) {
-    next(error);
-  }
+  res.json({
+    success: true,
+    suggestions,
+  });
 }
 
 module.exports = {
-  chatController,
-  getSuggestionsController
+  sendMessage,
+  getSuggestions,
 };

@@ -1,231 +1,80 @@
-/**
- * geo.service.js
- * Geospatial service for calculating environmental metrics
- * Orchestrates data loaders and distance calculations
- */
-
-const { loadBuildings } = require('../data/loaders/buildings.loader');
-const { loadParks } = require('../data/loaders/parks.loader');
-const { loadTransitStops } = require('../data/loaders/transit.loader');
-const { 
-  findNearest, 
-  findWithinRadius, 
-  isValidCoordinate 
-} = require('../utils/distance.util');
-
-// Search radius constants (in meters)
-const SEARCH_RADIUS = {
-  PARKS: 2000,
-  TRANSIT: 1500
-};
+// Geospatial service for distance calculations
 
 /**
- * Calculate environmental metrics for a location
- * @param {number} lat - Latitude
- * @param {number} lng - Longitude
- * @returns {Object} Environmental metrics
+ * Calculate distance between two points using Haversine formula
+ * @param {number} lat1 - Latitude of point 1
+ * @param {number} lng1 - Longitude of point 1
+ * @param {number} lat2 - Latitude of point 2
+ * @param {number} lng2 - Longitude of point 2
+ * @returns {number} Distance in meters
  */
-function calculateLocationMetrics(lat, lng) {
-  if (!isValidCoordinate(lat, lng)) {
-    throw new Error('Invalid coordinates provided');
+function haversineDistance(lat1, lng1, lat2, lng2) {
+  const R = 6371000; // Earth's radius in meters
+  const φ1 = (lat1 * Math.PI) / 180;
+  const φ2 = (lat2 * Math.PI) / 180;
+  const Δφ = ((lat2 - lat1) * Math.PI) / 180;
+  const Δλ = ((lng2 - lng1) * Math.PI) / 180;
+
+  const a =
+    Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+    Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  return R * c;
+}
+
+/**
+ * Find nearest point from a list
+ */
+function findNearest(lat, lng, points) {
+  if (points.length === 0) return null;
+
+  let nearest = points[0];
+  let minDistance = haversineDistance(lat, lng, nearest.lat, nearest.lng);
+
+  for (let i = 1; i < points.length; i++) {
+    const distance = haversineDistance(lat, lng, points[i].lat, points[i].lng);
+    if (distance < minDistance) {
+      minDistance = distance;
+      nearest = points[i];
+    }
   }
 
-  // Load all data
-  const parks = loadParks();
-  const transitStops = loadTransitStops();
+  return { point: nearest, distance: minDistance };
+}
 
-  // Find nearest park
-  const nearestPark = findNearest(lat, lng, parks);
-  const nearestParkDistance = nearestPark ? nearestPark.distance : Infinity;
+/**
+ * Count points within radius
+ */
+function countWithinRadius(lat, lng, points, radiusMeters) {
+  return points.filter(point => {
+    const distance = haversineDistance(lat, lng, point.lat, point.lng);
+    return distance <= radiusMeters;
+  }).length;
+}
 
-  // Find nearest transit stop
-  const nearestTransit = findNearest(lat, lng, transitStops);
-  const nearestTransitDistance = nearestTransit ? nearestTransit.distance : Infinity;
-
-  // Find parks within radius
-  const parksNearby = findWithinRadius(lat, lng, parks, SEARCH_RADIUS.PARKS);
-  const parksWithinRadius = parksNearby.length;
-
-  // Find transit stops within radius
-  const transitNearby = findWithinRadius(lat, lng, transitStops, SEARCH_RADIUS.TRANSIT);
-  const transitWithinRadius = transitNearby.length;
+/**
+ * Calculate proximity metrics for a building
+ */
+function calculateProximityMetrics(building, parks, transit) {
+  const nearestPark = findNearest(building.lat, building.lng, parks);
+  const nearestTransit = findNearest(building.lat, building.lng, transit);
 
   return {
-    nearestParkDistance,
-    nearestTransitDistance,
-    parksWithinRadius,
-    transitWithinRadius,
-    nearestPark: nearestPark ? {
-      id: nearestPark.id,
-      name: nearestPark.name,
-      distance: nearestPark.distance
-    } : null,
-    nearestTransit: nearestTransit ? {
-      id: nearestTransit.id,
-      name: nearestTransit.name,
-      distance: nearestTransit.distance
-    } : null,
-    parksNearby: parksNearby.map(p => ({
-      id: p.id,
-      name: p.name,
-      distance: p.distance
-    })),
-    transitNearby: transitNearby.map(t => ({
-      id: t.id,
-      name: t.name,
-      distance: t.distance
-    }))
-  };
-}
-
-/**
- * Calculate metrics for multiple locations
- * @param {Array<Object>} locations - Array of {lat, lng} objects
- * @returns {Array<Object>} Array of metrics
- */
-function calculateBulkMetrics(locations) {
-  if (!Array.isArray(locations)) {
-    throw new Error('Locations must be an array');
-  }
-
-  return locations.map(loc => {
-    try {
-      return calculateLocationMetrics(loc.lat, loc.lng);
-    } catch (error) {
-      console.error(`Error calculating metrics for ${loc.lat}, ${loc.lng}:`, error.message);
-      return null;
-    }
-  }).filter(metrics => metrics !== null);
-}
-
-/**
- * Get all available buildings with their coordinates
- * @returns {Array<Object>} Array of buildings
- */
-function getAllBuildings() {
-  return loadBuildings();
-}
-
-/**
- * Get all available parks
- * @returns {Array<Object>} Array of parks
- */
-function getAllParks() {
-  return loadParks();
-}
-
-/**
- * Get all available transit stops
- * @returns {Array<Object>} Array of transit stops
- */
-function getAllTransitStops() {
-  return loadTransitStops();
-}
-
-/**
- * Get summary statistics for the loaded data
- * @returns {Object} Data statistics
- */
-function getDataStatistics() {
-  const buildings = loadBuildings();
-  const parks = loadParks();
-  const transitStops = loadTransitStops();
-
-  return {
-    buildingsCount: buildings.length,
-    parksCount: parks.length,
-    transitStopsCount: transitStops.length,
-    dataLoaded: buildings.length > 0 || parks.length > 0 || transitStops.length > 0
-  };
-}
-
-/**
- * Find buildings near a specific park
- * @param {string} parkId - Park ID
- * @param {number} radiusMeters - Search radius
- * @returns {Array<Object>} Buildings within radius
- */
-function findBuildingsNearPark(parkId, radiusMeters = 500) {
-  const parks = loadParks();
-  const buildings = loadBuildings();
-
-  const park = parks.find(p => p.id === parkId);
-  if (!park) {
-    throw new Error(`Park not found: ${parkId}`);
-  }
-
-  return findWithinRadius(park.lat, park.lng, buildings, radiusMeters);
-}
-
-/**
- * Find buildings near a transit stop
- * @param {string} transitId - Transit stop ID
- * @param {number} radiusMeters - Search radius
- * @returns {Array<Object>} Buildings within radius
- */
-function findBuildingsNearTransit(transitId, radiusMeters = 400) {
-  const transitStops = loadTransitStops();
-  const buildings = loadBuildings();
-
-  const transit = transitStops.find(t => t.id === transitId);
-  if (!transit) {
-    throw new Error(`Transit stop not found: ${transitId}`);
-  }
-
-  return findWithinRadius(transit.lat, transit.lng, buildings, radiusMeters);
-}
-
-/**
- * Get environmental coverage score for the entire city
- * @returns {Object} Coverage metrics
- */
-function getCityCoverageMetrics() {
-  const buildings = loadBuildings();
-  const parks = loadParks();
-  const transitStops = loadTransitStops();
-
-  if (buildings.length === 0) {
-    return {
-      parkCoverage: 0,
-      transitCoverage: 0,
-      totalBuildings: 0
-    };
-  }
-
-  let buildingsNearParks = 0;
-  let buildingsNearTransit = 0;
-
-  buildings.forEach(building => {
-    const nearestPark = findNearest(building.lat, building.lng, parks);
-    const nearestTransit = findNearest(building.lat, building.lng, transitStops);
-
-    if (nearestPark && nearestPark.distance < 500) {
-      buildingsNearParks++;
-    }
-
-    if (nearestTransit && nearestTransit.distance < 400) {
-      buildingsNearTransit++;
-    }
-  });
-
-  return {
-    parkCoverage: buildingsNearParks / buildings.length,
-    transitCoverage: buildingsNearTransit / buildings.length,
-    totalBuildings: buildings.length,
-    buildingsNearParks,
-    buildingsNearTransit
+    nearestParkDistance: nearestPark?.distance || 10000,
+    nearestTransitDistance: nearestTransit?.distance || 10000,
+    nearestRoadDistance: 500, // Placeholder - roads not used in current scoring
+    parksWithin2km: countWithinRadius(building.lat, building.lng, parks, 2000),
+    transitWithin1km: countWithinRadius(building.lat, building.lng, transit, 1000),
+    nearestPark: nearestPark?.point,
+    nearestTransit: nearestTransit?.point,
   };
 }
 
 module.exports = {
-  calculateLocationMetrics,
-  calculateBulkMetrics,
-  getAllBuildings,
-  getAllParks,
-  getAllTransitStops,
-  getDataStatistics,
-  findBuildingsNearPark,
-  findBuildingsNearTransit,
-  getCityCoverageMetrics,
-  SEARCH_RADIUS
+  haversineDistance,
+  findNearest,
+  countWithinRadius,
+  calculateProximityMetrics,
 };

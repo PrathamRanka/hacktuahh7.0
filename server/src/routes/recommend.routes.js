@@ -1,32 +1,16 @@
-/**
- * recommend.routes.js
- * Routes for location recommendation endpoints
- */
+// Recommendation routes
 
 const express = require('express');
 const router = express.Router();
-const {
-  getRecommendationsController,
-  getLocationScoreController,
-  getBusinessTypesController
-} = require('../controllers/recommend.controller');
+const { recommend, score, getBusinessTypes } = require('../controllers/recommend.controller');
 
-/**
- * POST /recommend
- * Get location recommendations for a business type
- */
-router.post('/', getRecommendationsController);
+// POST /api/recommend - Get recommendations
+router.post('/', recommend);
 
-/**
- * POST /recommend/score
- * Get score for a specific location
- */
-router.post('/score', getLocationScoreController);
+// POST /api/recommend/score - Get score for specific location
+router.post('/score', score);
 
-/**
- * GET /recommend/business-types
- * Get all available business types
- */
-router.get('/business-types', getBusinessTypesController);
+// GET /api/recommend/business-types - Get available business types
+router.get('/business-types', getBusinessTypes);
 
 module.exports = router;

@@ -1,25 +1,13 @@
-/**
- * impact.routes.js
- * Routes for environmental impact endpoints
- */
+// Impact routes
 
 const express = require('express');
 const router = express.Router();
-const {
-  calculateImpactController,
-  compareImpactController
-} = require('../controllers/impact.controller');
+const { calculateImpact, compareImpact } = require('../controllers/impact.controller');
 
-/**
- * POST /impact
- * Calculate environmental impact for a location
- */
-router.post('/', calculateImpactController);
+// POST /api/impact - Calculate impact
+router.post('/', calculateImpact);
 
-/**
- * POST /impact/compare
- * Compare environmental impact between two locations
- */
-router.post('/compare', compareImpactController);
+// POST /api/impact/compare - Compare two locations
+router.post('/compare', compareImpact);
 
 module.exports = router;
